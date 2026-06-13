@@ -179,6 +179,27 @@
     .photo-box.has-image .icon,
     .photo-box.has-image .hint { display: none; }
 
+    .btn-cam {
+      position: absolute; bottom: 12px; left: 12px;
+      padding: 8px 12px; border-radius: 10px;
+      background: rgba(37,99,235,0.9); color: #fff; border: none;
+      font-weight: 700; cursor: pointer; font-size: 13px;
+    }
+    .btn-small {
+      padding: 8px 10px; border-radius: 8px; border: none;
+      background: #1e293b; color: #fde68a; font-weight: 700; cursor: pointer;
+    }
+
+    /* camera modal */
+    #cam-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 200; }
+    #cam-modal.show { display: flex; }
+    #cam-box { width: 92%; max-width: 420px; background: #0b1220; padding: 12px; border-radius: 12px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+    #cap-video { width:100%; border-radius:10px; background:#000; }
+    #cap-actions { display:flex; gap:8px; width:100%; }
+    #cap-actions button { flex:1; padding:10px; border-radius:10px; border:none; font-weight:700; cursor:pointer; }
+    #cap-actions .btn-capture { background: #16a34a; color:#fff; }
+    #cap-actions .btn-cancel { background: #ef4444; color:#fff; }
+
     /* ── SUBMIT ── */
     .btn-submit {
       width: 100%;
@@ -280,10 +301,13 @@
       </div>
 
       <div class="field">
-        <label>ช่างเทคนิค</label>
-        <select id="sel-tech">
-          <option value="">— กำลังโหลด... —</option>
-        </select>
+            <label>ช่างเทคนิค</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="sel-tech">
+                <option value="">— กำลังโหลด... —</option>
+              </select>
+              <button type="button" class="btn-small" onclick="promptAddTech()">+ เพิ่ม</button>
+            </div>
       </div>
 
       <div class="field">
@@ -303,6 +327,7 @@
       <div class="hint">แตะเพื่อถ่ายรูป<br>หรือเลือกจาก Gallery</div>
       <img class="preview" id="prev-before" src="" alt="" />
       <button class="remove-btn" onclick="removePhoto(event,'before')">✕</button>
+      <button type="button" class="btn-cam" onclick="openCapture('before')">ถ่ายรูป</button>
     </div>
   </div>
 
@@ -315,6 +340,7 @@
       <div class="hint">แตะเพื่อถ่ายรูป<br>หรือเลือกจาก Gallery</div>
       <img class="preview" id="prev-after" src="" alt="" />
       <button class="remove-btn" onclick="removePhoto(event,'after')">✕</button>
+      <button type="button" class="btn-cam" onclick="openCapture('after')">ถ่ายรูป</button>
     </div>
   </div>
 
@@ -333,6 +359,18 @@
 
 <!-- Toast -->
 <div id="toast"></div>
+
+<!-- Camera modal for capture -->
+<div id="cam-modal">
+  <div id="cam-box">
+    <video id="cap-video" autoplay playsinline></video>
+    <canvas id="cap-canvas" style="display:none;"></canvas>
+    <div id="cap-actions">
+      <button class="btn-capture" onclick="takeCapture()">📸 ถ่าย</button>
+      <button class="btn-cancel" onclick="closeCapture()">✕ ปิด</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -651,6 +689,68 @@ function showToast(msg, type) {
   el.className   = type || "success";
   el.style.display = "block";
   setTimeout(function() { el.style.display = "none"; }, 3500);
+}
+
+// ─── Camera capture for before/after ─────────────────
+var _capStream = null;
+var _capSide = null;
+function openCapture(side) {
+  _capSide = side;
+  var video = document.getElementById('cap-video');
+  var modal = document.getElementById('cam-modal');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('เบราว์เซอร์ไม่รองรับกล้อง', 'error'); return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+    .then(function(s){
+      _capStream = s;
+      video.srcObject = s;
+      modal.classList.add('show');
+    })
+    .catch(function(e){
+      showToast('ไม่สามารถเข้าถึงกล้อง: ' + (e.message||e.name), 'error');
+    });
+}
+
+function takeCapture() {
+  var video = document.getElementById('cap-video');
+  var canvas = document.getElementById('cap-canvas');
+  if (!video || !canvas) return;
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  var dataURL = canvas.toDataURL('image/jpeg', 0.85);
+  if (_capSide) {
+    photoData[_capSide] = dataURL;
+    document.getElementById('prev-' + _capSide).src = dataURL;
+    document.getElementById('box-' + _capSide).classList.add('has-image');
+  }
+  closeCapture();
+}
+
+function closeCapture() {
+  var modal = document.getElementById('cam-modal');
+  modal.classList.remove('show');
+  if (_capStream) {
+    _capStream.getTracks().forEach(function(t){ t.stop(); });
+    _capStream = null;
+  }
+  var video = document.getElementById('cap-video');
+  try { video.srcObject = null; } catch(e){}
+  _capSide = null;
+}
+
+// ─── Add technician locally ─────────────────────────
+function promptAddTech() {
+  var name = prompt('ระบุชื่อช่างเทคนิค');
+  if (!name) return;
+  var sel = document.getElementById('sel-tech');
+  var opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  sel.appendChild(opt);
+  sel.value = name;
 }
 </script>
 </body>

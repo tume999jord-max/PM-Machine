@@ -377,6 +377,8 @@
 //  CONFIG — เปลี่ยนตรงนี้หลัง deploy GAS
 // ══════════════════════════════════════════════════════
 var GAS_URL = "https://script.google.com/macros/s/AKfycbz-QYJhXo2b_6QzC9Q04qUo_XJnWfAazcQdDDUKQn9LN9RV6y50OwdHskZQoKPoc-Q6PA/exec";
+// Set to true to use built-in mock responses for offline testing (no GAS required)
+var USE_MOCK = false;
 
 // ══════════════════════════════════════════════════════
 var machineData = {};   // { regNo → { name, dept } }
@@ -446,6 +448,17 @@ function compressImageFile(file, maxWidth, maxHeight, quality) {
 
 // ─── Load Technicians ───────────────────────────────
 function loadTechs() {
+  if (USE_MOCK) {
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        var sel = document.getElementById("sel-tech");
+        sel.innerHTML = '';
+        var placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = '— เลือกช่างเทคนิค —'; sel.appendChild(placeholder);
+        ['สมชาย','สมศรี','วัฒนา'].forEach(function(name){ var opt=document.createElement('option'); opt.value=name; opt.textContent=name; sel.appendChild(opt); });
+        resolve();
+      }, 200);
+    });
+  }
   fetchWithTimeout(GAS_URL + "?action=getTechs")
     .then(function(r){ return r.json(); })
     .then(function(res) {
@@ -493,6 +506,15 @@ function openScanner() {
 }
 
 function handleQrResult(regNo) {
+  if (USE_MOCK) {
+    var disp = document.getElementById("machine-display");
+    disp.classList.add("show");
+    document.getElementById("disp-name").textContent = 'เครื่องตัวอย่าง ' + regNo;
+    document.getElementById("disp-reg").textContent  = 'ทะเบียน: ' + regNo;
+    document.getElementById("disp-dept").textContent = '📍 ฝ่ายผลิต';
+    machineData = { regNo: regNo, name: 'เครื่องตัวอย่าง ' + regNo, dept: 'ฝ่ายผลิต' };
+    return Promise.resolve();
+  }
   // try fetching single machine (more efficient) and fallback to full list
   var singleUrl = GAS_URL + "?action=getMachine&regNo=" + encodeURIComponent(regNo);
   fetchWithTimeout(singleUrl)
@@ -636,6 +658,17 @@ function submitForm() {
       return;
     }
   } catch (e) {}
+
+  if (USE_MOCK) {
+    // simulate server delay
+    setTimeout(function(){
+      hideLoading();
+      document.getElementById("btn-submit").disabled = false;
+      showToast("✅ (mock) บันทึกสำเร็จ!", "success");
+      resetForm();
+    }, 700);
+    return;
+  }
 
   fetch(GAS_URL, {
     method:  "POST",

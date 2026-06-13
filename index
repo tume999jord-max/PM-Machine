@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>PM Machine — บันทึกการตรวจ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --surface2: #334155;
+      --border:   #475569;
+      --amber:    #f59e0b;
+      --amber-lt: #fde68a;
+      --blue:     #3b82f6;
+      --blue-dk:  #1d4ed8;
+      --green:    #22c55e;
+      --green-dk: #15803d;
+      --red:      #ef4444;
+      --text:     #f1f5f9;
+      --muted:    #94a3b8;
+      --radius:   14px;
+    }
+
+    body {
+      font-family: 'Sarabun', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding: 0 0 40px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    header .logo { font-size: 22px; }
+    header h1 { font-size: 16px; font-weight: 700; line-height: 1.2; }
+    header p  { font-size: 11px; color: var(--muted); }
+
+    /* ── CONTAINER ── */
+    main {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── MACHINE DISPLAY ── */
+    #machine-display {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 14px;
+      display: none;
+    }
+    #machine-display.show { display: block; }
+    #machine-display .label { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    #machine-display .value { font-size: 15px; font-weight: 700; color: var(--amber-lt); }
+    #machine-display .sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── SCAN BTN ── */
+    .btn-scan {
+      width: 100%;
+      padding: 14px;
+      border: 2px dashed var(--amber);
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--amber);
+      font-family: 'Sarabun', Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-scan:hover { background: rgba(245,158,11,0.08); }
+
+    /* ── FORM FIELDS ── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+    select, input[type="text"], input[type="date"], textarea {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'Sarabun', Arial, sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--amber);
+    }
+    select option { background: #1e293b; }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── PHOTO UPLOAD ── */
+    .photo-box {
+      width: 100%;
+      min-height: 140px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .photo-box:hover { border-color: var(--amber); }
+    .photo-box input[type="file"] {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+    }
+    .photo-box .icon { font-size: 32px; }
+    .photo-box .hint { font-size: 12px; color: var(--muted); text-align: center; }
+    .photo-box img.preview {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      position: absolute; inset: 0;
+      border-radius: calc(var(--radius) - 2px);
+    }
+    .photo-box .remove-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.65);
+      border: none; border-radius: 50%;
+      width: 28px; height: 28px;
+      color: #fff; font-size: 14px;
+      cursor: pointer; display: none;
+      align-items: center; justify-content: center;
+    }
+    .photo-box.has-image .remove-btn { display: flex; }
+    .photo-box.has-image .icon,
+    .photo-box.has-image .hint { display: none; }
+
+    /* ── SUBMIT ── */
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #2563eb, var(--blue-dk));
+      color: #fff;
+      font-family: 'Sarabun', Arial, sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(37,99,235,0.4);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── TOAST ── */
+    #toast {
+      display: none;
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 999;
+      white-space: nowrap;
+      animation: slideUp 0.3s ease;
+    }
+    #toast.success { background: #dcfce7; color: var(--green-dk); }
+    #toast.error   { background: #fee2e2; color: #b91c1c; }
+    @keyframes slideUp {
+      from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    /* ── LOADING OVERLAY ── */
+    #loading {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,0.8);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #loading.show { display: flex; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid var(--surface2);
+      border-top-color: var(--amber);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔧</div>
+  <div>
+    <h1>PM Machine</h1>
+    <p>บันทึกการตรวจสอบเครื่องจักร</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── เครื่องจักร ── -->
+  <div class="card">
+    <div class="card-title">⚙️ เครื่องจักร</div>
+
+    <button class="btn-scan" id="btn-scan" onclick="openScanner()">
+      📷 สแกน QR ทะเบียนเครื่อง
+    </button>
+
+    <div id="machine-display" style="margin-top:12px;">
+      <div class="label">เครื่องจักร</div>
+      <div class="value" id="disp-name">—</div>
+      <div class="sub" id="disp-reg"></div>
+      <div class="sub" id="disp-dept" style="margin-top:4px;color:#f59e0b;font-size:11px;"></div>
+    </div>
+  </div>
+
+  <!-- ── ข้อมูลทั่วไป ── -->
+  <div class="card">
+    <div class="card-title">📋 ข้อมูลการตรวจ</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <div class="field">
+        <label>วันที่ตรวจ</label>
+        <input type="date" id="inp-date" />
+      </div>
+
+      <div class="field">
+        <label>ช่างเทคนิค</label>
+        <select id="sel-tech">
+          <option value="">— กำลังโหลด... —</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>หมายเหตุ / สิ่งที่พบ (ไม่บังคับ)</label>
+        <textarea id="inp-note" placeholder="ระบุรายละเอียดเพิ่มเติม..."></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── รูปก่อนทำ ── -->
+  <div class="card">
+    <div class="card-title">📸 รูปก่อนทำ</div>
+    <div class="photo-box" id="box-before">
+      <input type="file" accept="image/*" capture="environment" onchange="loadPhoto(this,'before')" />
+      <div class="icon">📷</div>
+      <div class="hint">แตะเพื่อถ่ายรูป<br>หรือเลือกจาก Gallery</div>
+      <img class="preview" id="prev-before" src="" alt="" />
+      <button class="remove-btn" onclick="removePhoto(event,'before')">✕</button>
+    </div>
+  </div>
+
+  <!-- ── รูปหลังทำ ── -->
+  <div class="card">
+    <div class="card-title">✅ รูปหลังทำ</div>
+    <div class="photo-box" id="box-after">
+      <input type="file" accept="image/*" capture="environment" onchange="loadPhoto(this,'after')" />
+      <div class="icon">📷</div>
+      <div class="hint">แตะเพื่อถ่ายรูป<br>หรือเลือกจาก Gallery</div>
+      <img class="preview" id="prev-after" src="" alt="" />
+      <button class="remove-btn" onclick="removePhoto(event,'after')">✕</button>
+    </div>
+  </div>
+
+  <!-- ── Submit ── -->
+  <button class="btn-submit" id="btn-submit" onclick="submitForm()">
+    💾 บันทึกข้อมูล
+  </button>
+
+</main>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p id="loading-msg">กำลังบันทึก...</p>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG — เปลี่ยนตรงนี้หลัง deploy GAS
+// ══════════════════════════════════════════════════════
+var GAS_URL = "https://script.google.com/macros/s/AKfycbz-QYJhXo2b_6QzC9Q04qUo_XJnWfAazcQdDDUKQn9LN9RV6y50OwdHskZQoKPoc-Q6PA/exec";
+
+// ══════════════════════════════════════════════════════
+var machineData = {};   // { regNo → { name, dept } }
+var photoData   = { before: null, after: null };
+
+// ─── Performance helpers ─────────────────────────────────
+var FETCH_TIMEOUT = 8000; // ms
+var MAX_IMAGE_BYTES = 900 * 1024; // ~900KB per image target
+
+function fetchWithTimeout(url, opts, timeout) {
+  timeout = timeout || FETCH_TIMEOUT;
+  var controller = new AbortController();
+  var id = setTimeout(function(){ controller.abort(); }, timeout);
+  opts = Object.assign({}, opts || {}, { signal: controller.signal });
+  return fetch(url, opts).finally(function(){ clearTimeout(id); });
+}
+
+function dataURLToBytes(dataURL) {
+  var base64 = dataURL.split(',')[1] || '';
+  return Math.ceil((base64.length * 3) / 4);
+}
+
+function compressImageFile(file, maxWidth, maxHeight, quality) {
+  quality = quality == null ? 0.8 : quality;
+  maxWidth = maxWidth || 1200;
+  maxHeight = maxHeight || 1200;
+  return new Promise(function(resolve, reject){
+    var img = new Image();
+    var reader = new FileReader();
+    reader.onload = function(e) { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      var scale = Math.min(1, maxWidth / w, maxHeight / h);
+      var cw = Math.max(1, Math.round(w * scale));
+      var ch = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = cw; canvas.height = ch;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, cw, ch);
+      try {
+        var dataURL = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataURL);
+      } catch (err) { reject(err); }
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── Init ───────────────────────────────────────────
+window.addEventListener("load", function() {
+  // ตั้งวันที่วันนี้
+  var today = new Date().toISOString().slice(0,10);
+  document.getElementById("inp-date").value = today;
+
+  loadTechs();
+
+  // รับ QR result จาก popup — ตรวจสอบด้วย reference ของ popup
+  window.addEventListener("message", function(e) {
+    if (e.source === window._scannerWindow && e.data && e.data.machineNo) {
+      handleQrResult(e.data.machineNo);
+      try { window._scannerWindow = null; } catch (err) {}
+    }
+  });
+});
+
+// ─── Load Technicians ───────────────────────────────
+function loadTechs() {
+  fetchWithTimeout(GAS_URL + "?action=getTechs")
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      var sel = document.getElementById("sel-tech");
+      sel.innerHTML = '';
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '— เลือกช่างเทคนิค —';
+      sel.appendChild(placeholder);
+      if (res && res.ok && Array.isArray(res.data) && res.data.length) {
+        res.data.forEach(function(name) {
+          var opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sel.appendChild(opt);
+        });
+      } else {
+        sel.innerHTML = '';
+        var none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'ไม่พบข้อมูลช่าง';
+        sel.appendChild(none);
+      }
+    })
+    .catch(function() {
+      var sel = document.getElementById("sel-tech");
+      sel.innerHTML = '';
+      var errOpt = document.createElement('option');
+      errOpt.value = '';
+      errOpt.textContent = '⚠️ โหลดไม่ได้ — ตรวจสอบ GAS URL';
+      sel.appendChild(errOpt);
+    });
+}
+
+// ─── QR Scanner popup ───────────────────────────────
+function openScanner() {
+  var w = window.open("qr-scanner.html", "qr_scanner",
+    "width=400,height=600,top=100,left=100,resizable=no");
+  if (w) {
+    window._scannerWindow = w;
+    try { w.focus(); } catch (e) {}
+  } else {
+    showToast("โปรดอนุญาต popup ในเบราว์เซอร์", "error");
+  }
+}
+
+function handleQrResult(regNo) {
+  // try fetching single machine (more efficient) and fallback to full list
+  var singleUrl = GAS_URL + "?action=getMachine&regNo=" + encodeURIComponent(regNo);
+  fetchWithTimeout(singleUrl)
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      var disp = document.getElementById("machine-display");
+      disp.classList.add("show");
+      if (res && res.ok && res.data) {
+        var machine = res.data;
+        document.getElementById("disp-name").textContent = machine.name || regNo;
+        document.getElementById("disp-reg").textContent  = "ทะเบียน: " + regNo;
+        document.getElementById("disp-dept").textContent = machine.dept ? "📍 " + machine.dept : "";
+        machineData = { regNo: regNo, name: machine.name || regNo, dept: machine.dept || "" };
+      } else {
+        // fallback: request full list
+        return fetchWithTimeout(GAS_URL + "?action=getMachines");
+      }
+    })
+    .then(function(r){ if (!r) return; return r.json(); })
+    .then(function(res){
+      if (!res) return;
+      var machine = null;
+      if (res.ok && Array.isArray(res.data)) {
+        machine = res.data.find(function(m){ return m.regNo === regNo; });
+      }
+      var disp = document.getElementById("machine-display");
+      disp.classList.add("show");
+      if (machine) {
+        document.getElementById("disp-name").textContent = machine.name;
+        document.getElementById("disp-reg").textContent  = "ทะเบียน: " + regNo;
+        document.getElementById("disp-dept").textContent = machine.dept ? "📍 " + machine.dept : "";
+        machineData = { regNo: regNo, name: machine.name, dept: machine.dept };
+      } else {
+        document.getElementById("disp-name").textContent = "ไม่พบเครื่อง";
+        document.getElementById("disp-reg").textContent  = "ทะเบียน: " + regNo;
+        document.getElementById("disp-dept").textContent = "";
+        machineData = { regNo: regNo, name: "", dept: "" };
+      }
+    })
+    .catch(function() {
+      var disp = document.getElementById("machine-display");
+      disp.classList.add("show");
+      document.getElementById("disp-name").textContent = regNo;
+      document.getElementById("disp-reg").textContent  = "";
+      document.getElementById("disp-dept").textContent = "";
+      machineData = { regNo: regNo, name: regNo, dept: "" };
+    });
+}
+
+// ─── Photo handlers ──────────────────────────────────
+function loadPhoto(input, side) {
+  var file = input.files[0];
+  if (!file) return;
+  // quick size check (reject very large files)
+  var MAX_INPUT_MB = 8; // don't accept >8MB raw
+  if (file.size > MAX_INPUT_MB * 1024 * 1024) {
+    showToast('ไฟล์ใหญ่เกินไป (สูงสุด ' + MAX_INPUT_MB + 'MB)', 'error');
+    return;
+  }
+  // compress image, try reducing quality until under target size
+  var quality = 0.85;
+  compressImageFile(file, 1600, 1600, quality).then(function(dataURL) {
+    var bytes = dataURLToBytes(dataURL);
+    // if still large, reduce quality in steps
+    var attempts = 0;
+    function maybeReduce(durl) {
+      attempts++;
+      var b = dataURLToBytes(durl);
+      if (b <= MAX_IMAGE_BYTES || attempts > 3) {
+        photoData[side] = durl;
+        document.getElementById('prev-' + side).src = durl;
+        document.getElementById('box-' + side).classList.add('has-image');
+        return;
+      }
+      quality = Math.max(0.4, quality - 0.2);
+      compressImageFile(file, 1200, 1200, quality).then(maybeReduce).catch(function(){
+        photoData[side] = durl;
+        document.getElementById('prev-' + side).src = durl;
+        document.getElementById('box-' + side).classList.add('has-image');
+      });
+    }
+    maybeReduce(dataURL);
+  }).catch(function(err){
+    console.error('compress error', err);
+    // fallback to plain preview
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      photoData[side] = e.target.result;
+      document.getElementById('prev-' + side).src = e.target.result;
+      document.getElementById('box-' + side).classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removePhoto(evt, side) {
+  evt.preventDefault();
+  evt.stopPropagation();
+  photoData[side] = null;
+  document.getElementById("prev-" + side).src = "";
+  document.getElementById("box-" + side).classList.remove("has-image");
+}
+
+// ─── Submit ──────────────────────────────────────────
+function submitForm() {
+  var date     = document.getElementById("inp-date").value;
+  var techName = document.getElementById("sel-tech").value;
+  var note     = document.getElementById("inp-note").value.trim();
+
+  if (!machineData.regNo) {
+    showToast("กรุณาสแกน QR เครื่องก่อน", "error"); return;
+  }
+  if (!date) {
+    showToast("กรุณาเลือกวันที่", "error"); return;
+  }
+  if (!techName) {
+    showToast("กรุณาเลือกช่างเทคนิค", "error"); return;
+  }
+
+  showLoading("กำลังอัปโหลดรูป...");
+  document.getElementById("btn-submit").disabled = true;
+
+  var payload = {
+    date:        date,
+    machineName: machineData.name,
+    regNo:       machineData.regNo,
+    techName:    techName,
+    result:      note,
+    photoBefore: photoData.before || "",
+    photoAfter:  photoData.after  || ""
+  };
+
+  // check approximate payload size (avoid huge base64 payload)
+  try {
+    var approx = new Blob([JSON.stringify(payload)]).size;
+    var MAX_PAYLOAD = 2.5 * 1024 * 1024; // 2.5MB
+    if (approx > MAX_PAYLOAD) {
+      hideLoading();
+      document.getElementById("btn-submit").disabled = false;
+      showToast('ข้อมูลใหญ่เกินไป โปรดลดขนาดรูป หรือถ่ายภาพความละเอียดต่ำกว่า', 'error');
+      return;
+    }
+  } catch (e) {}
+
+  fetch(GAS_URL, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    hideLoading();
+    document.getElementById("btn-submit").disabled = false;
+    if (res.ok) {
+      showToast("✅ บันทึกสำเร็จ!", "success");
+      resetForm();
+    } else {
+      showToast("❌ บันทึกไม่ได้: " + res.msg, "error");
+    }
+  })
+  .catch(function(err) {
+    hideLoading();
+    document.getElementById("btn-submit").disabled = false;
+    showToast("❌ เกิดข้อผิดพลาด: " + err.message, "error");
+  });
+}
+
+function resetForm() {
+  machineData = {};
+  photoData   = { before: null, after: null };
+  document.getElementById("machine-display").classList.remove("show");
+  document.getElementById("disp-name").textContent = "—";
+  document.getElementById("inp-note").value = "";
+  ["before","after"].forEach(function(s) {
+    document.getElementById("prev-" + s).src = "";
+    document.getElementById("box-" + s).classList.remove("has-image");
+  });
+  var today = new Date().toISOString().slice(0,10);
+  document.getElementById("inp-date").value = today;
+}
+
+// ─── UI helpers ──────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById("loading-msg").textContent = msg || "กำลังบันทึก...";
+  document.getElementById("loading").classList.add("show");
+}
+function hideLoading() {
+  document.getElementById("loading").classList.remove("show");
+}
+
+function showToast(msg, type) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className   = type || "success";
+  el.style.display = "block";
+  setTimeout(function() { el.style.display = "none"; }, 3500);
+}
+</script>
+</body>
+</html>

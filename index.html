@@ -278,15 +278,27 @@
   <div class="card">
     <div class="card-title">⚙️ เครื่องจักร</div>
 
-    <button class="btn-scan" id="btn-scan" onclick="openScanner()">
-      📷 สแกน QR ทะเบียนเครื่อง
-    </button>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <!-- Dropdown selection -->
+      <div class="field">
+        <label>เลือกเครื่องจักร</label>
+        <select id="sel-machine" onchange="selectMachine()">
+          <option value="">— กำลังโหลด... —</option>
+        </select>
+      </div>
 
-    <div id="machine-display" style="margin-top:12px;">
-      <div class="label">เครื่องจักร</div>
-      <div class="value" id="disp-name">—</div>
-      <div class="sub" id="disp-reg"></div>
-      <div class="sub" id="disp-dept" style="margin-top:4px;color:#f59e0b;font-size:11px;"></div>
+      <!-- QR scan alternative -->
+      <button class="btn-scan" id="btn-scan" onclick="openScanner()" style="margin-top:8px;">
+        📷 หรือสแกน QR ทะเบียนเครื่อง
+      </button>
+
+      <!-- Display selected machine -->
+      <div id="machine-display" style="margin-top:8px;">
+        <div class="label">เครื่องจักร</div>
+        <div class="value" id="disp-name">—</div>
+        <div class="sub" id="disp-reg"></div>
+        <div class="sub" id="disp-dept" style="margin-top:4px;color:#f59e0b;font-size:11px;"></div>
+      </div>
     </div>
   </div>
 
@@ -376,13 +388,14 @@
 // ══════════════════════════════════════════════════════
 //  CONFIG — เปลี่ยนตรงนี้หลัง deploy GAS
 // ══════════════════════════════════════════════════════
-var GAS_URL = "https://script.google.com/macros/s/AKfycbz-QYJhXo2b_6QzC9Q04qUo_XJnWfAazcQdDDUKQn9LN9RV6y50OwdHskZQoKPoc-Q6PA/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbyNSJtxdvFS-EeiMC9Wum6gbUfOLjVbD8sOzlf0WBIfVfbeFqxkDV2v91cpIAiwrjLF6Q/exec";
 // Set to true to use built-in mock responses for offline testing (no GAS required)
 var USE_MOCK = false;
 
 // ══════════════════════════════════════════════════════
 var machineData = {};   // { regNo → { name, dept } }
 var photoData   = { before: null, after: null };
+var machineList = [];   // array of all machines
 
 // ─── Init ───────────────────────────────────────────
 window.addEventListener("load", function() {
@@ -391,6 +404,7 @@ window.addEventListener("load", function() {
   document.getElementById("inp-date").value = today;
 
   loadTechs();
+  loadMachines();
 
   // รับ QR result จาก popup — ตรวจสอบด้วย reference ของ popup
   window.addEventListener("message", function(e) {
@@ -491,6 +505,89 @@ function loadTechs() {
       errOpt.textContent = '⚠️ โหลดไม่ได้ — ตรวจสอบ GAS URL';
       sel.appendChild(errOpt);
     });
+}
+
+// ─── Load Machines ──────────────────────────────────
+function loadMachines() {
+  if (USE_MOCK) {
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        machineList = [
+          { name: 'HITACHI ทดสอบ เครื่องที่ 1', regNo: 'FAM-0001', dept: '/เก็น / Fabric Store' },
+          { name: 'Bandsaw ทดสอบ ครั่ง เครื่องที่', regNo: 'FAM-0003', dept: '/เก็น / Fabric Store' }
+        ];
+        updateMachineDropdown();
+        resolve();
+      }, 200);
+    });
+  }
+  fetchWithTimeout(GAS_URL + "?action=getMachines")
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      if (res && res.ok && Array.isArray(res.data)) {
+        machineList = res.data;
+        updateMachineDropdown();
+      } else {
+        var sel = document.getElementById("sel-machine");
+        sel.innerHTML = '';
+        var none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'ไม่พบข้อมูลเครื่องจักร';
+        sel.appendChild(none);
+      }
+    })
+    .catch(function(err) {
+      console.error('Load machines error:', err);
+      var sel = document.getElementById("sel-machine");
+      sel.innerHTML = '';
+      var errOpt = document.createElement('option');
+      errOpt.value = '';
+      errOpt.textContent = '⚠️ โหลดไม่ได้ — ตรวจสอบ GAS URL';
+      sel.appendChild(errOpt);
+    });
+}
+
+function updateMachineDropdown() {
+  var sel = document.getElementById("sel-machine");
+  sel.innerHTML = '';
+  var placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = '— เลือกเครื่องจักร —';
+  sel.appendChild(placeholder);
+  
+  if (machineList && machineList.length > 0) {
+    machineList.forEach(function(machine) {
+      var opt = document.createElement('option');
+      opt.value = machine.regNo;
+      opt.textContent = machine.name + ' (' + machine.regNo + ')';
+      opt.dataset.name = machine.name;
+      opt.dataset.dept = machine.dept || '';
+      sel.appendChild(opt);
+    });
+  }
+}
+
+function selectMachine() {
+  var sel = document.getElementById("sel-machine");
+  var regNo = sel.value;
+  
+  if (!regNo) {
+    document.getElementById("machine-display").classList.remove("show");
+    machineData = {};
+    return;
+  }
+  
+  var selected = sel.options[sel.selectedIndex];
+  var name = selected.dataset.name || '';
+  var dept = selected.dataset.dept || '';
+  
+  var disp = document.getElementById("machine-display");
+  disp.classList.add("show");
+  document.getElementById("disp-name").textContent = name;
+  document.getElementById("disp-reg").textContent = "ทะเบียน: " + regNo;
+  document.getElementById("disp-dept").textContent = dept ? "📍 " + dept : "";
+  
+  machineData = { regNo: regNo, name: name, dept: dept };
 }
 
 // ─── QR Scanner popup ───────────────────────────────
@@ -675,8 +772,15 @@ function submitForm() {
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify(payload)
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r){ 
+    console.log("Response status:", r.status, r.statusText);
+    if (!r.ok) {
+      throw new Error("HTTP Error " + r.status + ": " + r.statusText);
+    }
+    return r.json(); 
+  })
   .then(function(res) {
+    console.log("Response data:", res);
     hideLoading();
     document.getElementById("btn-submit").disabled = false;
     if (res.ok) {
@@ -687,9 +791,10 @@ function submitForm() {
     }
   })
   .catch(function(err) {
+    console.error("Fetch error:", err);
     hideLoading();
     document.getElementById("btn-submit").disabled = false;
-    showToast("❌ เกิดข้อผิดพลาด: " + err.message, "error");
+    showToast("❌ เกิดข้อผิดพลาด: " + err.message + "\n(ตรวจสอบ GAS URL และ Console)", "error");
   });
 }
 
@@ -699,6 +804,7 @@ function resetForm() {
   document.getElementById("machine-display").classList.remove("show");
   document.getElementById("disp-name").textContent = "—";
   document.getElementById("inp-note").value = "";
+  document.getElementById("sel-machine").value = ""; // Reset dropdown
   ["before","after"].forEach(function(s) {
     document.getElementById("prev-" + s).src = "";
     document.getElementById("box-" + s).classList.remove("has-image");
